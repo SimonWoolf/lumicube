@@ -23,17 +23,17 @@ def set_leds(temps):
 def bound(low, high, x):
     return max(low, min(high, x))
 
-def new_temperature(cell, lower_cells):
+def new_temperature(cell, lower_cells, wind_velocity):
     [below_left_cell, below_cell, below_right_cell] = lower_cells
     self_contribution = cell * random.gauss(0.85, 0.05)
     upward_contribution = below_cell * random.gauss(0.08, 0.02)
-    wind_velocity = random.gauss(0, 0.02) + 0.03 # bias a bit rightwards
     wind_source = below_right_cell if wind_velocity < 0 else below_left_cell
     wind_contribution = wind_source * abs(wind_velocity)
     raw_temp = self_contribution + upward_contribution + wind_contribution
     return bound(raw_temp, 0, 1)
 
 def update_step(temps):
+    wind_velocity = random.gauss(0, 0.02) + 0.03 # bias a bit rightwards
     for j in range(ROW_COUNT):
         for i in range(COL_COUNT):
             current_cell = temps[(i,j)]
@@ -43,7 +43,7 @@ def update_step(temps):
                 temps[(i,j-1)],
                 temps[(i+1,j-1)]
             ] if j > 0 else [1,1,1]
-            temps[(i,j)] = new_temperature(current_cell, lower_cells)
+            temps[(i,j)] = new_temperature(current_cell, lower_cells, wind_velocity)
 
 def run():
     # initialize temperatures as a 2d grid of floats 0-1
