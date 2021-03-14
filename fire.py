@@ -17,34 +17,40 @@ def set_leds(temps):
         for i in range(COL_COUNT):
             temperature = temps[(i,j)]
             colours[(i,j)] = colour_from_temperature(temperature)
-            # print(colour_from_temperature(temperature))
 
-    # print(temps)
-    # print(colours)
     cube.set_leds(colours)
 
 def bound(low, high, x):
     return max(low, min(high, x))
 
-def new_temperature(cell, below_cell):
-    cooling_decay = random.gauss(0.8, 0.1)
-    conduction = random.gauss(0.15, 0.1)
-    raw_temp = (cell * cooling_decay) + (below_cell * conduction)
+def new_temperature(cell, lower_cells):
+    [below_left_cell, below_cell, below_right_cell] = lower_cells
+    self_contribution = cell * random.gauss(0.85, 0.05)
+    upward_contribution = below_cell * random.gauss(0.08, 0.02)
+    wind_velocity = random.gauss(0, 0.02) + 0.03 # bias a bit rightwards
+    wind_source = below_right_cell if wind_velocity < 0 else below_left_cell
+    wind_contribution = wind_source * abs(wind_velocity)
+    raw_temp = self_contribution + upward_contribution + wind_contribution
     return bound(raw_temp, 0, 1)
 
 def update_step(temps):
     for j in range(ROW_COUNT):
-        # If we're at the bottom row, our 'below row' is the 'heat source' fake-row
         for i in range(COL_COUNT):
             current_cell = temps[(i,j)]
-            below_cell = temps[(i,j-1)] if j > 0 else 1
-            temps[(i,j)] = new_temperature(current_cell, below_cell)
+            # If we're at the bottom row, our 'below row' is the 'heat source' fake-row
+            lower_cells = [
+                temps[(i-1,j-1)],
+                temps[(i,j-1)],
+                temps[(i+1,j-1)]
+            ] if j > 0 else [1,1,1]
+            temps[(i,j)] = new_temperature(current_cell, lower_cells)
 
 def run():
     # initialize temperatures as a 2d grid of floats 0-1
+    # include boundary columns either side of the visible ones
     temps = {}
     for j in range(ROW_COUNT):
-        for i in range(COL_COUNT):
+        for i in range(-1, COL_COUNT + 1):
             temps[(i,j)] = 0
 
     # initialize to black
@@ -53,7 +59,6 @@ def run():
     while True:
         set_leds(temps)
         update_step(temps)
-        # time.sleep(0.05)
 
 
 run()
