@@ -1,52 +1,59 @@
 import random
+import time
 
 # treat the two vertical grids as a single 16x8 screen that wraps around. ignore the top one.
 COL_COUNT = 16
 ROW_COUNT = 8
 
-# Have a fake row below the bottom row that's always at temperature 1, as the heat source
-HEAT_SOURCE = [1 for col in range(COL_COUNT)]
-
-# array of colours, coldest to hottest; length doesn't matter, temperatures will scale to fit
-COLOURS = [0x0, 0x880000, 0xff0000, 0xff8800, 0xffff00, 0xffff88]
-
 def colour_from_temperature(temperature):
-    return COLOURS[min(int(temperature * len(COLOURS)), len(COLOURS) - 1)]
+    red = 0 if temperature < 0.1 else min((temperature - 0.1) * 2, 1)
+    green = 0 if temperature < 0.3 else min((temperature - 0.3) * 2, 1)
+    blue = 0 if temperature < 0.9 else min((temperature - 0.9) * 2, 1)
+    return (int(red * 0xff) << 16) + (int(green * 0xff) << 8) + int(blue * 0xff)
 
-def set_leds(rows):
-    for j, row in enumerate(rows):
-        for i, temperature in enumerate(row):
-            # print(i, j, temperature)
-            cube.set_led(i, j, colour_from_temperature(temperature))
+def set_leds(temps):
+    colours = {}
+    for j in range(ROW_COUNT):
+        for i in range(COL_COUNT):
+            temperature = temps[(i,j)]
+            colours[(i,j)] = colour_from_temperature(temperature)
+            # print(colour_from_temperature(temperature))
+
+    # print(temps)
+    # print(colours)
+    cube.set_leds(colours)
 
 def bound(low, high, x):
     return max(low, min(high, x))
 
 def new_temperature(cell, below_cell):
-    cooling_decay = random.gauss(0.2, 0.1)
-    conduction = random.gauss(0.6, 0.1)
+    cooling_decay = random.gauss(0.8, 0.1)
+    conduction = random.gauss(0.15, 0.1)
     raw_temp = (cell * cooling_decay) + (below_cell * conduction)
     return bound(raw_temp, 0, 1)
 
-def update_step(rows):
+def update_step(temps):
     for j in range(ROW_COUNT):
-        current_row = rows[j]
         # If we're at the bottom row, our 'below row' is the 'heat source' fake-row
-        below_row = rows[j-1] if j > 0 else HEAT_SOURCE
         for i in range(COL_COUNT):
-            cell_below = below_row[i]
-            current_row[i] = new_temperature(current_row[i], below_row[i])
+            current_cell = temps[(i,j)]
+            below_cell = temps[(i,j-1)] if j > 0 else 1
+            temps[(i,j)] = new_temperature(current_cell, below_cell)
 
 def run():
     # initialize temperatures as a 2d grid of floats 0-1
-    rows = [[0 for col in range(COL_COUNT)] for row in range(ROW_COUNT)]
+    temps = {}
+    for j in range(ROW_COUNT):
+        for i in range(COL_COUNT):
+            temps[(i,j)] = 0
 
     # initialize to black
     cube.set_all(0)
 
     while True:
-        set_leds(rows)
-        update_step(rows)
+        set_leds(temps)
+        update_step(temps)
+        # time.sleep(0.05)
 
 
 run()
